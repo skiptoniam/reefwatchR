@@ -8,5 +8,6 @@ output: html_document
 ```{r}
 rw_data <- read.csv("./data/ReefWatch_new_all_TRUSTED.csv")
 head(rw_data)
+
 ```
 
