@@ -12,7 +12,7 @@ tail(rw_data)
 rw_tempo_sort <- rw_data[order(as.Date(rw_data$survey_date, format="%d/%m/%Y")),]
 ```
 
-Fish species first
+Fish species first - plot all species counts through time.
 ```{r}
 library(plyr)
 library(ggplot2)
@@ -27,6 +27,6 @@ rw_fish$date_num <- as.numeric(rw_fish$Date)
 # bin <- 365 # used for aggregating the data and aligning the labels
 # p <- ggplot(rw_fish, aes(date_num, ..count..))
 # p <- p + geom_histogram(binwidth = 9, colour="white")
-
-
 ```
+
+Next let's plot the abundance of each species through time.
