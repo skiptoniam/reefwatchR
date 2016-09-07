@@ -10,6 +10,8 @@ rw_data <- read.csv("./data/ReefWatch_new_all_TRUSTED.csv")
 head(rw_data)
 tail(rw_data)
 rw_tempo_sort <- rw_data[order(as.Date(rw_data$survey_date, format="%d/%m/%Y")),]
+
+
 ```
 
 Fish species first - plot all species counts through time.
@@ -19,14 +21,65 @@ library(ggplot2)
 library(reshape2)
 library(scales)
 
-rw_fish <- rw_tempo_sort[rw_tempo_sort$species_type=="Fish Species",]
-rw_fish$drange1
-rw_fish$Date <- as.Date(rw_fish$survey_date)
-rw_fish$date_num <- as.numeric(rw_fish$Date)
+biology_data <- read.csv('./data/reefwatch_biology_data_table.csv')
+head(biology_data)
+biodat_subset <- biology_data[,c("species_type","organism_no","common_name","slate_2001","slate_2009")]
+species_observed_across_all_years <- biodat_subset[biodat_subset[,"slate_2001"]=="y" & biodat_subset[,"slate_2009"]=="y",]
+nrow(species_observed_across_all_years)
 
-# bin <- 365 # used for aggregating the data and aligning the labels
-# p <- ggplot(rw_fish, aes(date_num, ..count..))
-# p <- p + geom_histogram(binwidth = 9, colour="white")
+# now let's select the fish.
+fish <- species_observed_across_all_years[species_observed_across_all_years$species_type=="Fish Species",]
+nrow(fish)
+fish_site_data <- rw_tempo_sort[rw_tempo_sort$common_name%in%fish$common_name,]
+fish_site_data$survey_date
+fish_site_data$date <- as.Date(fish_site_data$survey_date, format="%d/%m/%Y")
 ```
 
 Next let's plot the abundance of each species through time.
+```{r}
+dates <- as.POSIXct(as.Date(fish_site_data$survey_date, format="%d/%m/%Y"))
+fy.tmp <- seq( as.POSIXct('2001-07-01'), length=14, by='year')
+fish_site_data$fin_year <- (2001:2014)[ findInterval(dates,fy.tmp) ]
+
+library(lubridate)
+fish_site_data$my <- floor_date(fish_site_data$date,'month')
+fish_site_data$year <- floor_date(fish_site_data$date, "year")
+library(plyr)
+fish_site_data_month_sums <- ddply(fish_site_data, "my", summarise, no_spp = length(unique(common_name)),no_sites=length(unique(dive_location)))
+fish_site_data_year_sums <- ddply(fish_site_data, "year", summarise, no_spp = length(unique(common_name)),no_sites=length(unique(dive_location)))
+fish_site_data_fin_year_sums <- ddply(fish_site_data, "fin_year", summarise, no_spp = length(unique(common_name)),no_sites=length(unique(dive_location)))
+
+#plots of no species vs no sites for months, years and financial years.
+plot(fish_site_data_month_sums$no_spp,fish_site_data_month_sums$no_sites)
+plot(fish_site_data_year_sums$no_spp,fish_site_data_year_sums$no_sites)
+plot(fish_site_data_fin_year_sums$no_spp,fish_site_data_fin_year_sums$no_sites)
+
+# monthly plot of no. of fish species versus no. of dive sites.
+par(mar = c(5,5,2,5))
+with(fish_site_data_month_sums, plot(my, no_spp, type="l", col="red",lwd=1.5, 
+             ylab='no. fish species',xlab='time'))
+par(new = T)
+with(fish_site_data_month_sums, plot(my, no_sites, type='l', lty = 2,lwd=1.5,col='blue',axes=F, xlab=NA, ylab=NA))
+axis(side = 4)
+mtext(side = 4, line = 3, 'no. sites')
+legend("topleft",
+       legend=c("no. fish species", "no. sites"),
+       lty=c(1,2), col=c("red3", "blue"))
+```
+
+Let's write a set of pdfs, that has the number of species observed per financial year.
+```{r}
+agg_sp_fin_year <- aggregate(. ~ common_name+fin_year, data = fish_site_data, FUN = function(x) length(unique(x)))
+sp_ids <- unique(agg_sp_fin_year$common_name)
+n <- 1
+for(i in 1:length(sp_ids)){
+  if(any(seq(1,56,9)%in%n)){
+    pdf(paste0('./plots/years_no_species_',i,'_',i+8,"_spps.pdf"))
+    par(mfrow=c(3,3))
+  }
+plot(agg_sp_fin_year[agg_sp_fin_year$common_name==sp_ids[i],'fin_year'],agg_sp_fin_year[agg_sp_fin_year$common_name==sp_ids[i],'date'],main=sp_ids[i],type='l',xlab='year',ylab='occurrence')
+n <- n + 1
+if(any(seq(10,63,9)%in%n))dev.off()
+}
+dev.off()
+```
